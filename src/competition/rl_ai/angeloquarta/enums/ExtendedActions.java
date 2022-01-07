@@ -1,0 +1,9 @@
+package competition.rl_ai.angeloquarta.enums;
+
+public enum ExtendedActions {
+	LEFT,RIGHT,DOWN,JUMP,SPEED,UP,
+	LEFT_JUMP,RIGHT_JUMP,DOWN_JUMP,
+	LEFT_SPEED,RIGHT_SPEED,DOWN_SPEED,JUMP_SPEED,
+	LEFT_SPEED_JUMP,RIGHT_SPEED_JUMP,DOWN_SPEED_JUMP
+	
+}
