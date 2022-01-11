@@ -1,5 +1,7 @@
 package competition.rl_ai.angeloquarta;
 
+//@Author Angelo Quarta
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
@@ -23,8 +25,12 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 	private double[][] rTable;
 	private static float ALPHA = 0.5f;
 	private static float GAMMA = 0.3f;
-	private static double EPSILON=0.45;
-	private static final int VIEW_SIZE = 7;
+	private static final double EPSILON=0.60;
+	private static final int VIEW_SIZE = 6;
+	
+	private double epsilon;
+	private int enemiesKilled;
+	private int previousMapPosition;
 	
 	private ExtendedActions prevAction;
 	private ExtendedActions currentAction;
@@ -41,6 +47,10 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 		generateStates();
 		initQtable();
 		initRtable();
+		
+		epsilon = EPSILON;
+		enemiesKilled = 0;
+		previousMapPosition = 0;	
 		
 		prevState = new State(new EnemyState(Distance.FAR, PositionX.NONE, PositionY.NONE, Type.NONE),new ObstacleState(Distance.FAR, PositionX.NONE, PositionY.NONE, Size.NONE),MarioMode.FIRE);
 		prevAction = ExtendedActions.RIGHT;
@@ -220,31 +230,92 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 		
 		MarioMode marioMode = state.getMarioMode();
 		
-		boolean stateCondition=(enemyDistance == Distance.NEAR || obstacleDistance == Distance.NEAR) 
-				&& (enemyHoriziontalPosition == PositionX.FRONT || obstacleHoriziontalPosition == PositionX.FRONT ) 
-				&& !(enemyVerticalPosition == PositionY.HIGH || enemyVerticalPosition == PositionY.HIGH);
+		boolean stateCondition = (enemyDistance == Distance.NEAR ) 
+				&& (enemyHoriziontalPosition == PositionX.FRONT) 
+				&& !(enemyVerticalPosition == PositionY.HIGH) && (enemyKind == Type.STOMP);
 		
 		boolean actionCondition=(action==ExtendedActions.JUMP) || (action==ExtendedActions.LEFT_JUMP) 
+				|| (action==ExtendedActions.RIGHT_JUMP) || (action==ExtendedActions.RIGHT_SPEED_JUMP) 
+				|| (action==ExtendedActions.LEFT_SPEED_JUMP); 
+		
+		if(stateCondition && actionCondition) {
+			reward += 20;
+		}
+		
+		stateCondition = (obstacleDistance == Distance.NEAR) 
+				&& (obstacleHoriziontalPosition == PositionX.FRONT ) 
+				&& !(obstacleVerticalPosition == PositionY.HIGH);
+		
+		if(stateCondition && actionCondition) {
+			reward += 10;
+		}
+		
+		stateCondition = (obstacleDistance == Distance.NEAR) 
+				&& (obstacleHoriziontalPosition == PositionX.FRONT ) 
+				&& !(obstacleVerticalPosition == PositionY.HIGH) && (obstacleSize == Size.MEDIUM || obstacleSize == Size.BIG);
+		
+		actionCondition = (action==ExtendedActions.LEFT_JUMP) 
 				|| (action==ExtendedActions.RIGHT_JUMP) || (action==ExtendedActions.RIGHT_SPEED_JUMP) 
 				|| (action==ExtendedActions.LEFT_SPEED_JUMP);
 		
 		if(stateCondition && actionCondition) {
-			reward++;
+			reward += 10;
+		}
+		
+		stateCondition = (enemyDistance == Distance.NEAR) 
+				&& (enemyHoriziontalPosition == PositionX.FRONT) 
+				&& !(enemyVerticalPosition == PositionY.HIGH) 
+				&& (marioMode == MarioMode.FIRE) && (enemyKind == Type.FIRE); 
+		
+		actionCondition = (action==ExtendedActions.SPEED);
+		
+		if(stateCondition && actionCondition) {
+			reward += 10;
+		}
+		
+		stateCondition = (obstacleDistance == Distance.NEAR) 
+				&& (obstacleHoriziontalPosition == PositionX.BACK) 
+				&& !(obstacleVerticalPosition == PositionY.HIGH);
+		
+		if(stateCondition) {
+			reward += 10;
 		}
 		
 		actionCondition=(action==ExtendedActions.RIGHT) || (action==ExtendedActions.RIGHT_JUMP) 
 				|| (action==ExtendedActions.RIGHT_SPEED_JUMP) || (action==ExtendedActions.RIGHT_SPEED);
 		
 		if(actionCondition) {
-			reward++;
+			reward += 100;
 		}
+		
+		actionCondition=(action==ExtendedActions.LEFT) || (action==ExtendedActions.LEFT_JUMP) 
+				|| (action==ExtendedActions.LEFT_SPEED_JUMP) || (action==ExtendedActions.LEFT_SPEED);
+		
+		if(actionCondition) {
+			reward-=15;
+		}
+		
 		
 		return reward;
 	}
 	
-	//TODO: immediate reward will take account of killed monsters and taken coins
+	//TODO: immediate reward will take account of killed monsters and advancing level
 	private double getImmediateReward() {
 		double immediateReward = 0.0;
+		MarioEnvironment e = MarioEnvironment.getInstance();
+		int killedEnemies = e.getKilledCreaturesTotal();
+		
+		
+		if(killedEnemies > this.enemiesKilled) {
+			this.enemiesKilled = killedEnemies;
+			immediateReward = 10.0;
+		}
+		
+		if(e.getMario().mapX > this.previousMapPosition) {
+			this.previousMapPosition = e.getMario().mapX;
+			immediateReward = 10.0;
+		}
+		
 		return immediateReward;
 	}
 	
@@ -271,7 +342,7 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 		Distance dist;
 		int abs = Math.abs(posx - egoPosx);
 
-		if (abs <= State.X_POSITION_LIMIT) {
+		if (abs <= State.NEAR_LIMIT_DISTANCE) {
 			dist = Distance.NEAR;
 		} else {
 			dist = Distance.FAR;
@@ -357,13 +428,13 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 		//System.out.println("egopos: " + egoPos[0] + " " +egoPos[1]);
 		
 		int[] posEn = new int[2];
-		posEn[0] = enemies.length;
-		posEn[1] = enemies[0].length;
+		posEn[1] = enemies.length;
+		posEn[0] = enemies[1].length;
 		int enemyKindInt = 0;
 		
 		int[] posOb = new int[2];
-		posOb[0] = obstacles.length;
-		posOb[1] = obstacles[0].length;
+		posOb[1] = obstacles.length;
+		posOb[0] = obstacles[1].length;
 		int obstacleSizeInt = 0;
 		
 		double enemyDistanceDouble = Double.MAX_VALUE;
@@ -388,8 +459,8 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 				if (obstacles[i][j] != 0) {
 					
 
-					int lookUpStart = egoPos[1];
-					int lookUpEnd = egoPos[1] + VIEW_SIZE;
+					int lookUpStart = egoPos[0];
+					int lookUpEnd = egoPos[0] + VIEW_SIZE;
 					int idx = lookUpStart;
 					int val = obstacles[idx][j]; 
 					while (val != 0 && idx < lookUpEnd) {
@@ -455,8 +526,8 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 	private void updateEpsilon() {
 		Environment e = MarioEnvironment.getInstance();
 		int timeSpent = e.getTimeSpent();
-		if(EPSILON > 0.1) {
-			EPSILON = EPSILON - 0.0001*timeSpent;
+		if(epsilon > 0.1 && timeSpent > 40) {
+			epsilon = EPSILON - 0.001*timeSpent;
 		}  
 	}
 	
@@ -468,7 +539,7 @@ public class NewAgent extends BasicMarioAIAgent implements Agent{
 		double[] actions = qTable[currentStateIdx];
 		
 		Random rand=new Random();
-		if(rand.nextDouble()<EPSILON){
+		if(rand.nextDouble()<epsilon){
 			result=rand.nextInt(ExtendedActions.values().length);
 		}else{
 			result = max(actions);

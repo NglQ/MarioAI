@@ -8,7 +8,7 @@ import competition.rl_ai.angeloquarta.enums.Size;
 import competition.rl_ai.angeloquarta.enums.Type;
 
 public class State {
-	public static final int NEAR_LIMIT_DISTANCE=5;
+	public static final int NEAR_LIMIT_DISTANCE=3;
 	public static final int X_POSITION_LIMIT=1;
 	public static final int Y_HIGH_POSITION_LIMIT=5;
 	public static final int Y_LOW_POSITION_LIMIT=2;
@@ -20,7 +20,11 @@ public class State {
 	private ObstacleState obstacleState;
 	
 	MarioMode marioMode;
+	
+	//TODO: evaluate whether adding this new attributes to the state 
 	//boolean stuck;
+	//boolean enemyKilled
+	//boolean advancing
 
 	public State(EnemyState enemyState, ObstacleState obstacleState, MarioMode marioMode) {
 		super();
